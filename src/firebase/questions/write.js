@@ -8,10 +8,12 @@ export const createQuestion = async ({uid,qData})=>{
     const questionId = generateRandomId()
     await setDoc(doc(db,`questions`,questionId),{
         ...qData,
+        titleLower:qData?.title.toLowerCase(),
         createdBy:uid,
         createdAt:serverTimestamp()
     })
 }
+
 
 export const updateQuestion = async ({ questionId, qData }) => {
   const { title, content, tags } = qData;

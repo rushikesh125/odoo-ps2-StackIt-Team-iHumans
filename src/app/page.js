@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuestions } from "../firebase/questions/read";
 import toast from "react-hot-toast";
-import { ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon, FunnelIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import QuestionCard from "./components/QuestionCard";
 import { useSelector } from "react-redux";
@@ -13,9 +13,11 @@ const ShowQuestions = () => {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [lastSnapDocList, setLastSnapDocList] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [inputValue, setInputValue] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
   const [sortOption, setSortOption] = useState("newest");
   const [allTags, setAllTags] = useState([]);
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false); // Toggle filter menu
   const user = useSelector((state) => state?.user);
 
   const {
@@ -57,6 +59,25 @@ const ShowQuestions = () => {
   useEffect(() => {
     setLastSnapDocList([]);
   }, [itemsPerPage, searchQuery, selectedTags, sortOption]);
+
+  // Close filter menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isFilterMenuOpen && !event.target.closest("#filter-menu")) {
+        setIsFilterMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isFilterMenuOpen]);
+
+  const handleSearch = () => {
+    if (!inputValue.trim()) {
+      toast.error("Please enter a search query");
+      return;
+    }
+    setSearchQuery(inputValue);
+  };
 
   const handleNextPage = () => {
     if (lastSnapDoc) {
@@ -121,89 +142,186 @@ const ShowQuestions = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6 space-y-6">
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 space-y-4">
           {/* Search Bar */}
           <div>
             <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
               Search Questions
             </label>
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                id="search"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by question title..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors text-gray-700 placeholder-gray-400"
-                aria-label="Search questions by title"
-              />
+            <div className="relative flex items-center gap-2 max-w-md w-full">
+              <div className="relative flex-1">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  id="search"
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Search questions..."
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors text-gray-700 placeholder-gray-400"
+                  aria-label="Enter question title to search"
+                />
+              </div>
+              <button
+                onClick={handleSearch}
+                className="px-3 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg shadow-sm hover:from-purple-700 hover:to-purple-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                aria-label="Search questions"
+              >
+                <MagnifyingGlassIcon className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
-          {/* Tag Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filter by Tags
-            </label>
-            <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 scrollbar-track-gray-100">
-              {allTags.length > 0 ? (
-                allTags.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => handleTagToggle(tag)}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
-                      selectedTags.includes(tag)
-                        ? "bg-purple-600 text-white shadow-sm"
-                        : "bg-purple-100 text-purple-700 hover:bg-purple-200"
-                    }`}
-                    aria-pressed={selectedTags.includes(tag)}
-                    aria-label={`Filter by ${tag}`}
-                  >
-                    {tag}
-                  </button>
-                ))
-              ) : (
-                <p className="text-gray-500 text-sm">No tags available</p>
-              )}
-            </div>
+          {/* Filter Toggle for Mobile/Tablet */}
+          <div className="lg:hidden">
+            <button
+              onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+              className="flex items-center px-4 py-2 bg-purple-50 text-purple-700 rounded-lg w-full text-sm font-medium hover:bg-purple-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              aria-expanded={isFilterMenuOpen}
+              aria-controls="filter-menu"
+            >
+              <FunnelIcon className="w-4 h-4 mr-2" />
+              Filters
+            </button>
+            {isFilterMenuOpen && (
+              <div
+                id="filter-menu"
+                className="absolute z-20 mt-2 w-full max-w-md bg-white rounded-lg shadow-lg p-4 space-y-4 transform transition-all duration-300 origin-top scale-y-100 lg:scale-y-100"
+              >
+                {/* Tag Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Filter by Tags
+                  </label>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 scrollbar-track-gray-100">
+                    {allTags.length > 0 ? (
+                      allTags.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => handleTagToggle(tag)}
+                          className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
+                            selectedTags.includes(tag)
+                              ? "bg-purple-600 text-white shadow-sm"
+                              : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                          }`}
+                          aria-pressed={selectedTags.includes(tag)}
+                          aria-label={`Filter by ${tag}`}
+                        >
+                          {tag}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 text-sm">No tags available</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sort and Items Per Page */}
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label htmlFor="sort-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                      Sort By
+                    </label>
+                    <select
+                      id="sort-mobile"
+                      value={sortOption}
+                      onChange={(e) => setSortOption(e.target.value)}
+                      className="w-full px-3 py-2 bg-purple-50 text-purple-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors text-sm"
+                      aria-label="Sort questions"
+                    >
+                      <option value="newest">Newest</option>
+                      <option value="unanswered">Unanswered</option>
+                      <option value="answered">Answered</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="itemsPerPage-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                      Items Per Page
+                    </label>
+                    <select
+                      id="itemsPerPage-mobile"
+                      value={itemsPerPage}
+                      onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-purple-50 text-purple-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors text-sm"
+                      aria-label="Select items per page"
+                    >
+                      <option value={5}>5 items</option>
+                      <option value={10}>10 items</option>
+                      <option value={15}>15 items</option>
+                      <option value={20}>20 items</option>
+                      <option value={30}>30 items</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Sort and Items Per Page */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <label htmlFor="sort" className="block text-sm font-medium text-gray-700 mb-2">
-                Sort By
+          {/* Filters for Wide Screens */}
+          <div className="hidden lg:block space-y-6">
+            {/* Tag Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Tags
               </label>
-              <select
-                id="sort"
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value)}
-                className="w-full px-3 py-2 bg-purple-50 text-purple-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors"
-                aria-label="Sort questions"
-              >
-                <option value="newest">Newest</option>
-                <option value="unanswered">Unanswered</option>
-                <option value="answered">Answered</option>
-              </select>
+              <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 scrollbar-track-gray-100">
+                {allTags.length > 0 ? (
+                  allTags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => handleTagToggle(tag)}
+                      className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
+                        selectedTags.includes(tag)
+                          ? "bg-purple-600 text-white shadow-sm"
+                          : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                      }`}
+                      aria-pressed={selectedTags.includes(tag)}
+                      aria-label={`Filter by ${tag}`}
+                    >
+                      {tag}
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">No tags available</p>
+                )}
+              </div>
             </div>
-            <div className="flex-1">
-              <label htmlFor="itemsPerPage" className="block text-sm font-medium text-gray-700 mb-2">
-                Items Per Page
-              </label>
-              <select
-                id="itemsPerPage"
-                value={itemsPerPage}
-                onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-purple-50 text-purple-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors"
-                aria-label="Select items per page"
-              >
-                <option value={5}>5 items</option>
-                <option value={10}>10 items</option>
-                <option value={15}>15 items</option>
-                <option value={20}>20 items</option>
-                <option value={30}>30 items</option>
-              </select>
+
+            {/* Sort and Items Per Page */}
+            <div className="flex flex-row gap-4">
+              <div className="flex-1">
+                <label htmlFor="sort" className="block text-sm font-medium text-gray-700 mb-2">
+                  Sort By
+                </label>
+                <select
+                  id="sort"
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value)}
+                  className="w-full px-3 py-2 bg-purple-50 text-purple-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors text-sm"
+                  aria-label="Sort questions"
+                >
+                  <option value="newest">Newest</option>
+                  <option value="unanswered">Unanswered</option>
+                  <option value="answered">Answered</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label htmlFor="itemsPerPage" className="block text-sm font-medium text-gray-700 mb-2">
+                  Items Per Page
+                </label>
+                <select
+                  id="itemsPerPage"
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-purple-50 text-purple-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors text-sm"
+                  aria-label="Select items per page"
+                >
+                  <option value={5}>5 items</option>
+                  <option value={10}>10 items</option>
+                  <option value={15}>15 items</option>
+                  <option value={20}>20 items</option>
+                  <option value={30}>30 items</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

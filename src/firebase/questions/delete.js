@@ -3,9 +3,16 @@ import { deleteDoc, doc } from "firebase/firestore";
 
 export async function deleteQuestion({ id }) {
   try {
-    await deleteDoc(doc(db, "questions", id));
+    if (!id) {
+      throw new Error("Invalid question ID");
+    }
+    console.log("Attempting to delete question with ID:", id);
+    const docRef = doc(db, "questions", id);
+    await deleteDoc(docRef);
+    console.log("Question deleted successfully:", id);
     return true;
   } catch (error) {
-    throw new Error(error.message);
+    console.error("Error deleting question:", error);
+    throw new Error(error.message || "Failed to delete question");
   }
 }

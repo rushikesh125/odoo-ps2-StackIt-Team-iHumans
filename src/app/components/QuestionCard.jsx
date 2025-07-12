@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
@@ -31,15 +31,21 @@ const ErrorBoundary = ({ children }) => {
 const QuestionCard = ({ item, index, author, currentUser }) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const { user, isLoading: userLoading, error } = useUser(author);
+  const { user, isLoading: userLoading, error: userError } = useUser(author);
 
   const handleDelete = async () => {
+    if (!item.questionId) {
+      toast.error("Invalid question ID");
+      return;
+    }
     if (!confirm("Are you sure you want to delete this question?")) return;
     try {
       setIsLoading(true);
-      await deleteQuestion({ id: item.id });
+      console.log("Attempting to delete question:", item.questionId, "by user:", currentUser?.uid);
+      await deleteQuestion({ id: item.questionId });
       toast.success("Question deleted successfully!");
     } catch (error) {
+      console.error("Delete error:", error);
       toast.error(error.message || "Failed to delete question");
     } finally {
       setIsLoading(false);
@@ -72,8 +78,9 @@ const QuestionCard = ({ item, index, author, currentUser }) => {
   };
 
   useEffect(() => {
-    // This effect can be used for any side effects related to user data if needed
-  }, [author]);
+    console.log("QuestionCard props:", { item, index, author, currentUser });
+    console.log("User data:", { user, userLoading, userError });
+  }, [item, index, author, currentUser, user, userLoading, userError]);
 
   return (
     <ErrorBoundary>
@@ -88,7 +95,7 @@ const QuestionCard = ({ item, index, author, currentUser }) => {
         </div>
         <div className="flex-1">
           <Link
-            href={`/questions/${item.id}`}
+            href={`/questions/${item.questionId}`}
             className="focus:outline-none focus:ring-2 focus:ring-purple-500 rounded"
           >
             <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-purple-800 hover:text-purple-900 transition-colors duration-200">
@@ -124,10 +131,10 @@ const QuestionCard = ({ item, index, author, currentUser }) => {
                 })}
               </span>
             </div>
-            {currentUser?.uid === item.createdBy && (
+            {currentUser?.uid && item.createdBy && currentUser.uid === item.createdBy ? (
               <div className="flex gap-2">
                 <button
-                  onClick={() => router.push(`/editquestion?qid=${item.id}`)}
+                  onClick={() => router.push(`/editquestion?qid=${item.questionId}`)}
                   className="p-2 bg-purple-100 rounded-lg hover:bg-purple-200 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   title="Edit Question"
                   aria-label="Edit Question"
@@ -151,6 +158,10 @@ const QuestionCard = ({ item, index, author, currentUser }) => {
                     }`}
                   />
                 </button>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500">
+                {currentUser?.uid ? "Not authorized to edit/delete" : "Login to edit/delete"}
               </div>
             )}
           </div>
