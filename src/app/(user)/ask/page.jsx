@@ -79,7 +79,7 @@ const AskQuestionPage = () => {
       setErrors({});
       const temptag = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
       // Simulated API call
-      await createQuestion({uid:user.uid,qData:{title,content,temptag}}) // Simulate network delay
+      await createQuestion({uid:user.uid,qData:{title,content,tags:temptag}}) // Simulate network delay
       toast.success("Queston Created Successfully");
       console.log({
         title,
