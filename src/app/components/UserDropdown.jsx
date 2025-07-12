@@ -1,3 +1,4 @@
+"use client"
 import { auth} from "../../firebase/config"
 import {
   Dropdown,
@@ -33,7 +34,7 @@ export default function UserDropdown({ user }) {
             src={user?.photoURL}
           />
         </DropdownTrigger>
-        <DropdownMenu aria-label="Profile Actions" variant="flat" className="border rounded-lg border-slate-700/[0.1] shadow-md ">
+        <DropdownMenu aria-label="Profile Actions" variant="flat" className="border rounded-lg border-slate-700/[0.1] shadow-md bg-white">
           <DropdownItem key="profile" className="h-14 gap-2">
             <p className="font-semibold">{user && user?.displayName}</p>
             <p className="text-sm">{user && user?.email}</p>

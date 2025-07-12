@@ -22,13 +22,14 @@ import { auth } from "../../firebase/config"
 import { removeUser, setUser } from "../../store/userSlice"
 import toast from "react-hot-toast";
 import UserDropdown from "./UserDropdown";
+import { createUser } from "../../firebase/users/write";
 const MainNavbar = () => {
   // const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const dispatch = useDispatch();
   const user = useSelector((state) => state.user);
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async(user) => {
       if (user) {
         const tempUser = {
           uid: user.uid,
@@ -37,6 +38,12 @@ const MainNavbar = () => {
           photoURL: user.photoURL,
         };
         dispatch(setUser(tempUser));
+        try {
+          await createUser({userData:tempUser})
+        } catch (error) {
+          toast.error(error?.message)
+          console.log(error)
+        }
       } else {
         dispatch(removeUser());
       }
