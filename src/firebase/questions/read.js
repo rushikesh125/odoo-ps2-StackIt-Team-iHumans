@@ -1,15 +1,9 @@
-"use client";
+import { collection, doc, limit, onSnapshot, query, startAfter } from "firebase/firestore";
 import { db } from "../config";
-import {
-  collection,
-  limit,
-  onSnapshot,
-  query,
-  startAfter,
-} from "firebase/firestore";
-import useSWRSubscription from "swr/subscription";
+import useSWRSubscription from 'swr/subscription'
 
-export function useQuestions({ pageLimit, lastSnapDoc }) {
+
+export const useQuestions = ({ pageLimit, lastSnapDoc }) => {
   const { data, error } = useSWRSubscription(
     ["questions", pageLimit, lastSnapDoc],
     ([path, pageLimit, lastSnapDoc], { next }) => {
@@ -34,7 +28,6 @@ export function useQuestions({ pageLimit, lastSnapDoc }) {
         },
         (err) => next(err, null)
       );
-
       return () => unsub();
     }
   );
@@ -45,4 +38,50 @@ export function useQuestions({ pageLimit, lastSnapDoc }) {
     error: error?.message,
     isLoading: data === undefined,
   };
-}
+};
+
+export const useQuestion = ({ questionId }) => {
+  const { data, error } = useSWRSubscription(
+    ["questions", questionId],
+    ([path, questionId], { next }) => {
+      const ref = doc(db, `questions/${questionId}`);
+      const unsub = onSnapshot(
+        ref,
+        (snapshot) => {
+          next(null, snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
+        },
+        (err) => next(err, null)
+      );
+      return () => unsub();
+    }
+  );
+
+  return {
+    data,
+    error: error?.message,
+    isLoading: data === undefined,
+  };
+};
+
+export const useAnswers = ({ questionId }) => {
+  const { data, error } = useSWRSubscription(
+    [`questions/${questionId}/answers`],
+    ([path], { next }) => {
+      const ref = collection(db, path);
+      const q = query(ref);
+      const unsub = onSnapshot(
+        q,
+        (snapshot) => {
+          next(null, snapshot.docs.map((snap) => ({ id: snap.id, ...snap.data() })));
+        },
+        (err) => next(err, null)
+      );
+      return () => unsub();
+    }
+  );
+  return {
+    data,
+    error: error?.message,
+    isLoading: data === undefined,
+  };
+};
