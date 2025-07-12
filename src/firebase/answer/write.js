@@ -1,8 +1,22 @@
-import { doc, setDoc, serverTimestamp, getDoc, deleteField, increment, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  serverTimestamp,
+  getDoc,
+  deleteField,
+  increment,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../config";
 import { generateRandomId } from "../utils";
 
-export const saveAnswer = async ({ questionId, content, userId, votes = 0, userVotes = {} }) => {
+export const saveAnswer = async ({
+  questionId,
+  content,
+  userId,
+  votes = 0,
+  userVotes = {},
+}) => {
   try {
     const answerId = generateRandomId();
     const answerRef = doc(db, "questions", questionId, "answers", answerId);
@@ -13,6 +27,9 @@ export const saveAnswer = async ({ questionId, content, userId, votes = 0, userV
       votes,
       userVotes,
     });
+    await updateDoc(doc(db, "questions", questionId), {
+      answerCount: increment(1), // or increment(-1)
+    });
     return { success: true, answerId };
   } catch (error) {
     console.error("Error saving answer:", error);
@@ -20,11 +37,18 @@ export const saveAnswer = async ({ questionId, content, userId, votes = 0, userV
   }
 };
 
-export const voteAnswer = async ({ questionId, answerId, userId, voteType }) => {
+export const voteAnswer = async ({
+  questionId,
+  answerId,
+  userId,
+  voteType,
+}) => {
   try {
     const answerRef = doc(db, "questions", questionId, "answers", answerId);
     const answerDoc = await getDoc(answerRef);
-    const currentVote = answerDoc.exists() ? answerDoc.data().池Votes?.[userId] : null;
+    const currentVote = answerDoc.exists()
+      ? answerDoc.data().池Votes?.[userId]
+      : null;
 
     if (currentVote === voteType) {
       // Remove vote

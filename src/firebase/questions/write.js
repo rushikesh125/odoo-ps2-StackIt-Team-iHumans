@@ -13,6 +13,16 @@ export const createQuestion = async ({uid,qData})=>{
     })
 }
 
+export const updateQuestion = async ({ questionId, qData }) => {
+  const { title, content, tags } = qData;
+  const docRef = doc(db, "questions", questionId);
+  await setDoc(docRef, {
+    title,
+    content,
+    tags,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+};
 
 
 // export async function testInsertDummyQuestions() {

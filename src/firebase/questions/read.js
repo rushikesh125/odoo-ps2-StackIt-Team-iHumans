@@ -40,28 +40,6 @@ export const useQuestions = ({ pageLimit, lastSnapDoc }) => {
   };
 };
 
-export const useQuestion = ({ questionId }) => {
-  const { data, error } = useSWRSubscription(
-    ["questions", questionId],
-    ([path, questionId], { next }) => {
-      const ref = doc(db, `questions/${questionId}`);
-      const unsub = onSnapshot(
-        ref,
-        (snapshot) => {
-          next(null, snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
-        },
-        (err) => next(err, null)
-      );
-      return () => unsub();
-    }
-  );
-
-  return {
-    data,
-    error: error?.message,
-    isLoading: data === undefined,
-  };
-};
 
 export const useAnswers = ({ questionId }) => {
   const { data, error } = useSWRSubscription(
@@ -81,6 +59,33 @@ export const useAnswers = ({ questionId }) => {
   );
   return {
     data,
+    error: error?.message,
+    isLoading: data === undefined,
+  };
+};
+
+export const useQuestion = ({ questionId }) => {
+  const { data, error } = useSWRSubscription(
+    ["questions", questionId],
+    ([path, questionId], { next }) => {
+      const ref = doc(db, `questions/${questionId}`);
+      const unsub = onSnapshot(
+        ref,
+        (snapshot) => {
+          next(null, snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
+        },
+        (err) => next(err, null)
+      );
+      return () => unsub();
+    }
+  );
+  const {data:lenans} = useAnswers({questionId})
+
+  return {
+    data:{
+      ...data,
+      availAns:lenans?.length
+    },
     error: error?.message,
     isLoading: data === undefined,
   };

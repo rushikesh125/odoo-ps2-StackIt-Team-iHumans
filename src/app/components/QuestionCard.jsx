@@ -49,8 +49,19 @@ const QuestionCard = ({ item, index, author, currentUser }) => {
   // Function to sanitize and render HTML content
   const renderRichText = (content) => {
     const sanitizedContent = DOMPurify.sanitize(content, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'code', 'pre'],
-      ALLOWED_ATTR: ['href', 'target', 'rel'],
+      ALLOWED_TAGS: [
+        "p",
+        "br",
+        "strong",
+        "em",
+        "ul",
+        "ol",
+        "li",
+        "a",
+        "code",
+        "pre",
+      ],
+      ALLOWED_ATTR: ["href", "target", "rel"],
     });
     return (
       <div
@@ -66,19 +77,20 @@ const QuestionCard = ({ item, index, author, currentUser }) => {
 
   return (
     <ErrorBoundary>
-      <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 border-l-4 border-purple-600 p-4 sm:p-6 md:flex bg-gradient-to-r from-purple-50 to-white">
-        <div className="flex flex-row md:flex-col items-center justify-center w-full md:w-24 md:mr-6 gap-4 md:gap-2 mb-4 md:mb-0">
-          <div className="flex flex-col items-center">
-            <div className="text-lg sm:text-xl font-bold text-purple-700">{item.upvotes || 0}</div>
-            <div className="text-xs sm:text-sm text-gray-500">Votes</div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-lg sm:text-xl font-bold text-purple-700">{item.answerCount || 0}</div>
+      <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 border-l-4 border-purple-600 p-2 sm:p-6 @max-md:flex-col-reverse md:flex bg-gradient-to-r from-purple-50 to-white">
+        <div className="flex md:items-center md:justify-center w-full md:w-24 md:mr-6 gap-4 md:gap-2 mb-4 md:mb-0">
+          <div>
+            <div className="text-lg sm:text-xl font-bold text-purple-700 text-center">
+              {item.answerCount || 0}
+            </div>
             <div className="text-xs sm:text-sm text-gray-500">Answers</div>
           </div>
         </div>
         <div className="flex-1">
-          <Link href={`/questions/${item.id}`} className="focus:outline-none focus:ring-2 focus:ring-purple-500 rounded">
+          <Link
+            href={`/questions/${item.id}`}
+            className="focus:outline-none focus:ring-2 focus:ring-purple-500 rounded"
+          >
             <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-purple-800 hover:text-purple-900 transition-colors duration-200">
               {item.title}
             </h2>
@@ -115,7 +127,7 @@ const QuestionCard = ({ item, index, author, currentUser }) => {
             {currentUser?.uid === item.createdBy && (
               <div className="flex gap-2">
                 <button
-                  onClick={() => router.push(`/questions/edit?id=${item.id}`)}
+                  onClick={() => router.push(`/editquestion?qid=${item.id}`)}
                   className="p-2 bg-purple-100 rounded-lg hover:bg-purple-200 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   title="Edit Question"
                   aria-label="Edit Question"
@@ -133,7 +145,11 @@ const QuestionCard = ({ item, index, author, currentUser }) => {
                   title="Delete Question"
                   aria-label="Delete Question"
                 >
-                  <TrashIcon className={`w-5 h-5 ${isLoading ? "text-gray-400" : "text-red-600"}`} />
+                  <TrashIcon
+                    className={`w-5 h-5 ${
+                      isLoading ? "text-gray-400" : "text-red-600"
+                    }`}
+                  />
                 </button>
               </div>
             )}
