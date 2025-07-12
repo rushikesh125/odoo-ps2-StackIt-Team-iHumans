@@ -1,79 +1,71 @@
-import {
-  doc,
-  setDoc,
-  serverTimestamp,
-  getDoc,
-  deleteField,
-  increment,
-  updateDoc,
-} from "firebase/firestore";
-import { db } from "../config";
-import { generateRandomId } from "../utils";
+import { db } from "../config"; // Adjust path to your Firebase config
+import { doc, setDoc, deleteDoc, updateDoc, increment, collection, getDoc, } from "firebase/firestore";
 
-export const saveAnswer = async ({
-  questionId,
-  content,
-  userId,
-  votes = 0,
-  userVotes = {},
-}) => {
-  try {
-    const answerId = generateRandomId();
-    const answerRef = doc(db, "questions", questionId, "answers", answerId);
-    await setDoc(answerRef, {
-      content,
-      createdBy: userId,
-      createdAt: serverTimestamp(),
-      votes,
-      userVotes,
-    });
-    await updateDoc(doc(db, "questions", questionId), {
+export const saveAnswer = async ({ questionId, content, userId, votes = 0, userVotes = {} }) => {
+  if (!questionId || !content || !userId) {
+    throw new Error("Question ID, content, and user ID are required");
+  }
+  const answerRef = doc(collection(db, `questions/${questionId}/answers`));
+  await setDoc(answerRef, {
+    content,
+    createdBy: userId,
+    createdAt: new Date(),
+    votes,
+    userVotes,
+  });
+   await updateDoc(doc(db, "questions", questionId), {
       answerCount: increment(1), // or increment(-1)
     });
-    return { success: true, answerId };
-  } catch (error) {
-    console.error("Error saving answer:", error);
-    throw error;
-  }
+  return { id: answerRef.id };
 };
 
-export const voteAnswer = async ({
-  questionId,
-  answerId,
-  userId,
-  voteType,
-}) => {
-  try {
-    const answerRef = doc(db, "questions", questionId, "answers", answerId);
-    const answerDoc = await getDoc(answerRef);
-    const currentVote = answerDoc.exists()
-      ? answerDoc.data().池Votes?.[userId]
-      : null;
-
-    if (currentVote === voteType) {
-      // Remove vote
-      await updateDoc(answerRef, {
-        [`userVotes.${userId}`]: deleteField(),
-        votes: increment(voteType === 1 ? -1 : 1),
-      });
-      return { success: true, message: "Vote removed" };
-    } else if (currentVote) {
-      // Change vote
-      await updateDoc(answerRef, {
-        [`userVotes.${userId}`]: voteType,
-        votes: increment(voteType === 1 ? 2 : -2),
-      });
-      return { success: true, message: "Vote updated" };
-    } else {
-      // New vote
-      await updateDoc(answerRef, {
-        [`userVotes.${userId}`]: voteType,
-        votes: increment(voteType),
-      });
-      return { success: true, message: "Vote recorded" };
-    }
-  } catch (error) {
-    console.error("Error voting on answer:", error);
-    throw error;
+export const voteAnswer = async ({ questionId, answerId, userId, voteType }) => {
+  if (!userId) {
+    throw new Error("User must be logged in to vote");
   }
+  if (![1, -1].includes(voteType)) {
+    throw new Error("Invalid vote type. Use 1 for upvote or -1 for downvote");
+  }
+
+  const answerRef = doc(db, `questions/${questionId}/answers`, answerId);
+  const answerSnap = await getDoc(answerRef);
+
+  if (!answerSnap.exists()) {
+    throw new Error("Answer not found");
+  }
+
+  const answerData = answerSnap.data();
+  const currentUserVote = answerData.userVotes?.[userId] || 0;
+  let voteChange = 0;
+  const updatedUserVotes = { ...answerData.userVotes };
+
+  if (currentUserVote === voteType) {
+    // User is removing their vote (e.g., clicking upvote again removes +1)
+    voteChange = -voteType;
+    delete updatedUserVotes[userId];
+  } else {
+    // User is adding a new vote or switching votes
+    voteChange = voteType - currentUserVote;
+    updatedUserVotes[userId] = voteType;
+  }
+
+  await updateDoc(answerRef, {
+    votes: increment(voteChange),
+    userVotes: updatedUserVotes,
+  });
+
+  return {
+    message: voteChange === 0 ? "Vote removed" : voteType > 0 ? "Upvoted successfully" : "Downvoted successfully",
+  };
+};
+
+export const deleteAnswer = async ({ questionId, answerId }) => {
+  if (!questionId || !answerId) {
+    throw new Error("Question ID and Answer ID are required");
+  }
+  const answerRef = doc(db, `questions/${questionId}/answers`, answerId);
+  await deleteDoc(answerRef);
+   await updateDoc(doc(db, "questions", questionId), {
+      answerCount: increment(-1), // or increment(-1)
+    });
 };

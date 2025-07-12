@@ -2,7 +2,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { saveAnswer, voteAnswer } from "../../firebase/answer/write";
+import { saveAnswer, voteAnswer, deleteAnswer } from "../../firebase/answer/write";
 import { useQuestion } from "../../firebase/questions/read";
 import { useAnswers } from "../../firebase/questions/read";
 import { useUsers } from "../../firebase/users/read";
@@ -10,6 +10,7 @@ import { useSelector } from "react-redux";
 import { Avatar } from "@heroui/react";
 import RichTextEditor from "./rich-text-editor";
 import DOMPurify from "dompurify";
+import { TrashIcon } from "@heroicons/react/24/outline";
 
 const ErrorBoundary = ({ children }) => {
   const [hasError, setHasError] = useState(false);
@@ -107,6 +108,20 @@ const QuestionDetail = () => {
     }
   };
 
+  const handleDeleteAnswer = async (answerId) => {
+    if (!user) {
+      toast.error("Please log in to delete your answer.");
+      return;
+    }
+    if (!confirm("Are you sure you want to delete this answer?")) return;
+    try {
+      await deleteAnswer({ questionId: id, answerId });
+      toast.success("Answer deleted successfully!");
+    } catch (error) {
+      toast.error(error.message || "Failed to delete answer");
+    }
+  };
+
   // Function to sanitize and render HTML content
   const renderRichText = (content) => {
     const sanitizedContent = DOMPurify.sanitize(content);
@@ -176,7 +191,6 @@ const QuestionDetail = () => {
           <div className="space-y-6">
             {answers
               ?.sort((a, b) => (b.votes || 0) - (a.votes || 0))
-              .slice(0, 2)
               .map((answer) => (
                 <div key={answer.id} className="pt-4 flex">
                   <div className="flex flex-col items-center mr-4">
@@ -234,16 +248,28 @@ const QuestionDetail = () => {
                   </div>
                   <div className="flex-1">
                     {renderRichText(answer.content)}
-                    <div className="flex items-center mt-2">
-                      <Avatar url={users[answer.createdBy]?.photoURL} />
-                      <span className="text-gray-600">{users[answer.createdBy]?.displayName || "Unknown"}</span>
-                      <span className="text-gray-500 text-sm ml-2">
-                        {answer.createdAt?.toDate().toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </span>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center">
+                        <Avatar url={users[answer.createdBy]?.photoURL} />
+                        <span className="text-gray-600">{users[answer.createdBy]?.displayName || "Unknown"}</span>
+                        <span className="text-gray-500 text-sm ml-2">
+                          {answer.createdAt?.toDate().toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      {user?.uid === answer.createdBy && (
+                        <button
+                          onClick={() => handleDeleteAnswer(answer.id)}
+                          className="p-2 bg-red-100 rounded-lg hover:bg-red-200 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-500"
+                          title="Delete Answer"
+                          aria-label="Delete Answer"
+                        >
+                          <TrashIcon className="w-5 h-5 text-red-600" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
