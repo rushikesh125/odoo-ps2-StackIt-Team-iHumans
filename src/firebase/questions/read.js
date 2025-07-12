@@ -1,43 +1,76 @@
-import { collection, doc, limit, onSnapshot, query, startAfter } from "firebase/firestore";
+import { collection, doc, getDocs, limit, onSnapshot, orderBy, query, startAfter, where } from "firebase/firestore";
 import { db } from "../config";
 import useSWRSubscription from 'swr/subscription'
+import { useEffect, useState } from "react";
 
 
-export const useQuestions = ({ pageLimit, lastSnapDoc }) => {
-  const { data, error } = useSWRSubscription(
-    ["questions", pageLimit, lastSnapDoc],
-    ([path, pageLimit, lastSnapDoc], { next }) => {
-      const ref = collection(db, path);
-      let q = query(ref, limit(pageLimit ?? 10));
-      if (lastSnapDoc) {
-        q = query(q, startAfter(lastSnapDoc));
+export const useQuestions = ({ pageLimit, lastSnapDoc, searchQuery, tags, sortOption }) => {
+  const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastSnap, setLastSnap] = useState(null);
+
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        setIsLoading(true);
+        let q = query(collection(db, "questions"), limit(pageLimit));
+
+        // Apply search query filter
+        if (searchQuery) {
+          const searchLower = searchQuery.toLowerCase();
+          q = query(q, where("titleLower", ">=", searchLower), where("titleLower", "<=", searchLower + "\uf8ff"));
+        }
+
+        // Apply tag filter
+        if (tags && tags.length > 0) {
+          q = query(q, where("tags", "array-contains-any", tags));
+        }
+
+        // Apply sorting
+        if (sortOption === "newest") {
+          q = query(q, orderBy("createdAt", "desc"));
+        }
+
+        // Apply pagination
+        if (lastSnapDoc) {
+          q = query(q, startAfter(lastSnapDoc));
+        }
+
+        const querySnapshot = await getDocs(q);
+        const questionsData = await Promise.all(
+          querySnapshot.docs.map(async (doc) => {
+            const answersRef = collection(db, `questions/${doc.id}/answers`);
+            const answersSnapshot = await getDocs(answersRef);
+            return {
+              questionId: doc.id,
+              ...doc.data(),
+              answerCount: answersSnapshot.size,
+            };
+          })
+        );
+
+        // Filter answered/unanswered on client-side due to Firestore limitations
+        let filteredData = questionsData;
+        if (sortOption === "unanswered") {
+          filteredData = questionsData.filter((q) => q.answerCount === 0);
+        } else if (sortOption === "answered") {
+          filteredData = questionsData.filter((q) => q.answerCount > 0);
+        }
+
+        setData(filteredData);
+        setLastSnap(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
+      } catch (err) {
+        setError(err.message);
+        setData([]);
+      } finally {
+        setIsLoading(false);
       }
-      const unsub = onSnapshot(
-        q,
-        (snapshot) => {
-          next(null, {
-            list:
-              snapshot.docs.length === 0
-                ? null
-                : snapshot.docs.map((snap) => ({ id: snap.id, ...snap.data() })),
-            lastSnapDoc:
-              snapshot.docs.length === 0
-                ? null
-                : snapshot.docs[snapshot.docs.length - 1],
-          });
-        },
-        (err) => next(err, null)
-      );
-      return () => unsub();
-    }
-  );
+    };
+    fetchQuestions();
+  }, [pageLimit, lastSnapDoc, searchQuery, tags, sortOption]);
 
-  return {
-    data: data?.list,
-    lastSnapDoc: data?.lastSnapDoc,
-    error: error?.message,
-    isLoading: data === undefined,
-  };
+  return { data, isLoading, error, lastSnapDoc: lastSnap };
 };
 
 
@@ -79,13 +112,10 @@ export const useQuestion = ({ questionId }) => {
       return () => unsub();
     }
   );
-  const {data:lenans} = useAnswers({questionId})
+
 
   return {
-    data:{
-      ...data,
-      availAns:lenans?.length
-    },
+    data,
     error: error?.message,
     isLoading: data === undefined,
   };

@@ -1,21 +1,22 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useQuestions } from "../firebase/questions/read";
-// import { useAuth } from "../firebase/auth";
 import toast from "react-hot-toast";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { ChevronLeftIcon, ChevronRightIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import QuestionCard from "./components/QuestionCard";
 import { useSelector } from "react-redux";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../firebase/config"; // Adjust path to your Firebase config
 
 const ShowQuestions = () => {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [lastSnapDocList, setLastSnapDocList] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [sortOption, setSortOption] = useState("newest");
+  const [allTags, setAllTags] = useState([]);
   const user = useSelector((state) => state?.user);
-
-  useEffect(() => {
-    setLastSnapDocList([]);
-  }, [itemsPerPage]);
 
   const {
     data: questions,
@@ -28,9 +29,35 @@ const ShowQuestions = () => {
       lastSnapDocList.length === 0
         ? null
         : lastSnapDocList[lastSnapDocList.length - 1],
+    searchQuery: searchQuery.trim(),
+    tags: selectedTags,
+    sortOption,
   });
 
-  console.log(questions);
+  // Fetch all unique tags
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const questionsRef = collection(db, "questions");
+        const questionsSnapshot = await getDocs(questionsRef);
+        const tagsSet = new Set();
+        questionsSnapshot.forEach((doc) => {
+          const tags = doc.data().tags || [];
+          tags.forEach((tag) => tagsSet.add(tag));
+        });
+        setAllTags([...tagsSet].sort());
+      } catch (err) {
+        toast.error("Failed to load tags: " + err.message);
+      }
+    };
+    fetchTags();
+  }, []);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setLastSnapDocList([]);
+  }, [itemsPerPage, searchQuery, selectedTags, sortOption]);
+
   const handleNextPage = () => {
     if (lastSnapDoc) {
       setLastSnapDocList((prev) => [...prev, lastSnapDoc]);
@@ -41,11 +68,18 @@ const ShowQuestions = () => {
     setLastSnapDocList((prev) => prev.slice(0, -1));
   };
 
+  const handleTagToggle = (tag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <div className="text-purple-600 text-lg font-semibold animate-pulse">
-          Loading...
+      <div className="flex justify-center items-center h-screen bg-gray-100">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-purple-600 text-lg font-semibold">Loading Questions...</p>
         </div>
       </div>
     );
@@ -53,74 +87,192 @@ const ShowQuestions = () => {
 
   if (error) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50">
-        <div className="text-red-500 text-lg font-semibold">Error: {error}</div>
+      <div className="flex justify-center items-center h-screen bg-gray-100">
+        <div className="text-center">
+          <p className="text-red-500 text-lg font-semibold">Error: {error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Questions</h1>
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md shadow-sm rounded-lg p-4 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+            Explore Questions
+          </h1>
           {user && (
             <Link
               href="/ask"
-              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg shadow-md hover:from-purple-700 hover:to-purple-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              aria-label="Ask a new question"
             >
               Ask a Question
             </Link>
           )}
         </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6 space-y-6">
+          {/* Search Bar */}
+          <div>
+            <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
+              Search Questions
+            </label>
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                id="search"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by question title..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors text-gray-700 placeholder-gray-400"
+                aria-label="Search questions by title"
+              />
+            </div>
+          </div>
+
+          {/* Tag Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Filter by Tags
+            </label>
+            <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 scrollbar-track-gray-100">
+              {allTags.length > 0 ? (
+                allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => handleTagToggle(tag)}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
+                      selectedTags.includes(tag)
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                    }`}
+                    aria-pressed={selectedTags.includes(tag)}
+                    aria-label={`Filter by ${tag}`}
+                  >
+                    {tag}
+                  </button>
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">No tags available</p>
+              )}
+            </div>
+          </div>
+
+          {/* Sort and Items Per Page */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label htmlFor="sort" className="block text-sm font-medium text-gray-700 mb-2">
+                Sort By
+              </label>
+              <select
+                id="sort"
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="w-full px-3 py-2 bg-purple-50 text-purple-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors"
+                aria-label="Sort questions"
+              >
+                <option value="newest">Newest</option>
+                <option value="unanswered">Unanswered</option>
+                <option value="answered">Answered</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label htmlFor="itemsPerPage" className="block text-sm font-medium text-gray-700 mb-2">
+                Items Per Page
+              </label>
+              <select
+                id="itemsPerPage"
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="w-full px-3 py-2 bg-purple-50 text-purple-700 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors"
+                aria-label="Select items per page"
+              >
+                <option value={5}>5 items</option>
+                <option value={10}>10 items</option>
+                <option value={15}>15 items</option>
+                <option value={20}>20 items</option>
+                <option value={30}>30 items</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Questions */}
         <div className="space-y-4">
-          {questions?.map((item, index) => (
-            <QuestionCard
-              key={item.questionId}
-              item={item}
-              index={index}
-              author={item.createdBy} // Pass the uid
-              currentUser={user} // Pass the current authenticated user
-            />
-          ))}
-          {questions?.length === 0 && (
-            <p className="text-gray-500 text-center">
-              No questions to display.
-            </p>
+          {questions?.length > 0 ? (
+            questions.map((item, index) => (
+              <QuestionCard
+                key={item.questionId}
+                item={item}
+                index={index}
+                author={item.createdBy}
+                currentUser={user}
+              />
+            ))
+          ) : (
+            <div className="text-center py-12 bg-white rounded-lg shadow-md">
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <p className="mt-2 text-gray-500 text-lg font-medium">
+                No questions match your criteria.
+              </p>
+              <p className="mt-1 text-gray-400 text-sm">
+                Try adjusting your search or filters.
+              </p>
+            </div>
           )}
         </div>
-        <div className="flex justify-between items-center mt-6">
+
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row justify-between items-center mt-8 gap-4">
           <button
             onClick={handlePrevPage}
             disabled={lastSnapDocList.length === 0 || isLoading}
-            className={`flex items-center px-4 py-2 rounded-md text-white font-semibold transition-colors ${
+            className={`flex items-center px-4 py-2 rounded-lg text-white font-medium transition-all duration-200 shadow-sm ${
               lastSnapDocList.length === 0 || isLoading
                 ? "bg-gray-300 cursor-not-allowed"
-                : "bg-purple-500 hover:bg-purple-600"
+                : "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
             }`}
+            aria-label="Previous page"
           >
             <ChevronLeftIcon className="w-5 h-5 mr-1" />
-            Prev
+            Previous
           </button>
-          <select
-            className="px-3 py-2 bg-purple-100 text-purple-700 rounded-md outline-none focus:ring-2 focus:ring-purple-500"
-            value={itemsPerPage}
-            onChange={(e) => setItemsPerPage(Number(e.target.value))}
-          >
-            <option value={5}>5 items</option>
-            <option value={10}>10 items</option>
-            <option value={15}>15 items</option>
-            <option value={20}>20 items</option>
-            <option value={30}>30 items</option>
-          </select>
+          <span className="text-gray-600 text-sm">
+            Page {lastSnapDocList.length + 1}
+          </span>
           <button
             onClick={handleNextPage}
-            disabled={isLoading || !lastSnapDoc}
-            className={`flex items-center px-4 py-2 rounded-md text-white font-semibold transition-colors ${
-              isLoading || !lastSnapDoc
+            disabled={isLoading || !lastSnapDoc || questions.length < itemsPerPage}
+            className={`flex items-center px-4 py-2 rounded-lg text-white font-medium transition-all duration-200 shadow-sm ${
+              isLoading || !lastSnapDoc || questions.length < itemsPerPage
                 ? "bg-gray-300 cursor-not-allowed"
-                : "bg-purple-500 hover:bg-purple-600"
+                : "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
             }`}
+            aria-label="Next page"
           >
             Next
             <ChevronRightIcon className="w-5 h-5 ml-1" />
